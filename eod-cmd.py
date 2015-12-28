@@ -22,7 +22,7 @@ class EOData:
             if not os.path.exists(dir):
                     os.makedirs(dir)
 
-        exch_list = ['AMEX','NYSE','Nasdaq','SCAP']
+        exch_list = ['AMEX','NYSE','Nasdaq','SCAP','USETFs']
 
         if exchs:
             for item in exchs:
@@ -68,7 +68,7 @@ class EOData:
             shutil.rmtree('temp',ignore_errors=True)
         df = pd.concat(dfs)
         df.columns = ['Name','Symbol','Open','High','Low','Close','Net Chg','pCentChg','Volume','52WkHigh','52WkLow','Div','Yield','P/E','YTDpCentChg','Exchange']
-        df = df.sort_values('Symbol',kind='quicksort')
+        df = df.sort('Symbol',kind='quicksort')
         return df
 
     def from_cmd(self):
