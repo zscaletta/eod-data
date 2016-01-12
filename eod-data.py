@@ -2,54 +2,80 @@ __author__ = 'Zach'
 
 import os
 import sys
+import datetime
 import csv
 import ast
 import shutil
 import urllib.request, urllib.parse, urllib.error
+import logging
 import pandas as pd
 
 class EOData:
 
+    def __init__(self):
+        self.log_enabled = False
+        self.logging = None
 
+    def init_log(self):
+        logging.basicConfig(filename='eod_log_{0}.log'.format(datetime.date.today()),level=logging.DEBUG,format='%(asctime)s %(message)s')
+        self.log_enabled = True
 
+    def get_eod_csv(self,dir= '',exchs= [], overwrite= False):
+        # downloads csv files to dir specified for exchs specified
+        # default is all exchanges to local directory
 
-    def get_eod_csv(self,dir='',exchs=[]):
         if dir:
             if not os.path.exists(dir):
                     os.makedirs(dir)
         exch_list = ['AMEX','NYSE','Nasdaq','SCAP']
 
         if exchs:
-            print('...exchanges specified: {0}'.format(exchs))
             for item in exchs:
                 path = 'http://online.wsj.com/public/resources/documents/{0}.csv'.format(item)
-                print(path)
                 filename = os.path.join(dir,'{0}_EOD.csv'.format(item))
                 if not os.path.exists(filename):
                     try:
                         urllib.request.urlretrieve(path, filename)
-                        print('...downloaded successfully')
+                        if self.log_enabled:
+                            logging.info('{0} ...downloaded successfully'.format(path))
+                        else:
+                            print('{0} ...downloaded successfully'.format(path))
                     except:
-                        print('unable to download...')
+                        if self.log_enabled:
+                            logging.warning('unable to download {0}'.format(path))
+                        else:
+                            print('unable to download {0}'.format(path))
         else:
-            print('...downloading data from all exch!')
             for item in exch_list:
                 path = 'http://online.wsj.com/public/resources/documents/{0}.csv'.format(item)
-                print(path)
                 filename = os.path.join(dir,'{0}_EOD.csv'.format(item))
                 if not os.path.exists(filename):
                     try:
                         urllib.request.urlretrieve(path, filename)
-                        print('...downloaded successfully')
+                        if self.log_enabled:
+                            logging.info('{0} ...downloaded successfully'.format(path))
+                        else:
+                            print('{0} ...downloaded successfully'.format(path))
                     except:
-                        print('unable to download...')
+                        if self.log_enabled:
+                            logging.warning('unable to download {0}'.format(path))
+                        else:
+                            print('unable to download {0}'.format(path))
+                else:
+                    if self.log_enabled:
+                        logging.warning('file already exists, not downloading!')
+                    else:
+                        print('file already exists!')
 
     def get_all_eod(self,keep_csv=False):
         # returns unindexed df containing combination of raw eod csv data files from each exch
 
         self.get_eod_csv(dir='temp')
         dfs = []
-        print('... reading files')
+        if self.log_enabled:
+            logging.info('... reading files')
+        else:
+            print('... reading files')
         for i in os.listdir('temp'):
             if '.csv' in i:
                 pt = os.path.join('temp',i)
@@ -63,62 +89,74 @@ class EOData:
                 df['Exchange'] = exchange
                 dfs.append(df)
         if keep_csv == False:
+            if self.log_enabled:
+                logging.info('... cleaning up')
+            else:
+                print('... cleaning up')
             shutil.rmtree('temp',ignore_errors=True)
         df = pd.concat(dfs)
-        #df.reset_index(inplace=True)
         df.columns = ['Name','Symbol','Open','High','Low','Close','Net Chg','pCentChg','Volume','52WkHigh','52WkLow','Div','Yield','P/E','YTDpCentChg','Exchange']
-        df = df.sort(columns='Symbol',kind='quicksort')
-        #df.set_index(['Symbol'])
+        df = df.sort_values('Symbol',kind='quicksort')
         return df
 
     def from_cmd(self):
-        # simply filters get_all_eod df for fields specified below:
+
+
+        # allows command-line access to some features of pandas slicing
+        # default fields can be adjusted below, see readme for details
         fields=['Symbol','Close']
-        # or in commandline argument 'fields=[list of fieldnames]'
+
         exch_data = self.get_all_eod()
         argd = self.parse_args()
-        if argd[2].lower() == 'all':
+        if argd[2] == 'all':
             ftr = exch_data
-        elif argd[2] != str(argd[2]):
-            fields = argd[2]
+        elif len(argd[2]) > 0:
+            fields = ast.literal_eval(argd[2])
             ftr = exch_data[fields]
         else:
             ftr = exch_data[fields]
-        # this implementation is somewhat esoteric to the commandline branch
-        print(ftr.head())
-        print(argd)
+
+        if self.log_enabled:
+            logging.info('... length of df: {0}'.format(len(ftr)))
         fpath = argd[0]
+
+        # lines below enable overwriting by default
         if os.path.exists(fpath):
             os.remove(fpath)
 
         if '.csv' in fpath:
-
             if argd[1] == True:
-                print('made it this far')
                 ftr.to_csv(fpath,index= False,header= True)
             else:
                 ftr.to_csv(fpath,index= False,header= False)
+            if self.log_enabled:
+                logging.info('... complete {0}'.format(fpath))
+            else:
+                print('... complete {0}'.format(fpath))
         else:
             if argd[1] == True:
-                print('made it this far')
                 ftr.to_csv(fpath,index= False,header= True,sep= ' ',mode= 'a')
             else:
                 ftr.to_csv(fpath,index= False,header= False,sep= ' ',mode= 'a')
-
+            if self.log_enabled:
+                logging.info('... complete {0}'.format(fpath))
+            else:
+                print('... complete {0}'.format(fpath))
 
     def skip_header(self,seq, n):
-    # supporting func for 'get_all_eod'
+        # supporting func for EOData.get_all_eod
         for i,item in enumerate(seq):
             if i >= n:
                 yield item
 
-
     def parse_args(self):
         # supporting func for EOData.from_cmd
         # parses cmd line arguments for ease of use with automation/bat files
-        pth = ''
+        # defaults can be set in strings below - specifying dest_path will overwrite dest_folder and fname
+
+        dest_folder = ''
         fname='exch_data.txt'
-        newfpath = ''
+        dest_path = ''
         header=False
         listofcols = []
         if len(sys.argv) > 1:
@@ -126,20 +164,27 @@ class EOData:
                 if 'fname=' in item:
                     t = item.split('fname=')
                     fname = t[1]
-                    print('fname specified: {0}'.format(fname))
+                    if self.log_enabled:
+                        logging.info('... filename specified: {0}'.format(fname))
+
                 if 'dest_folder=' in item:
                     t = item.split('dest_folder=')
-                    pth = t[1]
-                    print('path specified: {0}'.format(pth))
+                    dest_folder = t[1]
+                    if self.log_enabled:
+                        logging.info('... destination folder specified: {0}'.format(dest_folder))
 
                 if 'dest_path=' in item:
                     t = item.split('dest_path=')
-                    newfpath = t[1]
+                    dest_path = t[1]
+                    if self.log_enabled:
+                        logging.info('... destination filepath specified: {0}'.format(dest_path))
 
                 if 'headers=' in item:
                     t = item.split('headers=')
                     if t[1].lower() == 'true':
                         header = True
+                        if self.log_enabled:
+                            logging.info('... headers enabled')
                     else:
                         header = False
 
@@ -147,14 +192,18 @@ class EOData:
                     t = item.split('fields=')
                     if t[1] == str(t[1]):
                         listofcols=t[1]
+                        if self.log_enabled:
+                            logging.info('... filtered for specified fields')
                     else:
                         listofcols = ast.literal_eval(t[1])
+                        if self.log_enabled:
+                            logging.info('... filtered for specified fields')
 
-
-        full_path = os.path.join(pth,fname)
-        if newfpath:
-            full_path=newfpath
-        print('saving to path: {0}'.format(full_path))
-
+        full_path = os.path.join(dest_folder,fname)
+        if dest_path:
+            full_path=dest_path
+        if self.log_enabled:
+            logging.info('... saving to path: {0}'.format(full_path))
         argd = [full_path,header,listofcols]
+
         return argd
