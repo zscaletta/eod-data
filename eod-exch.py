@@ -10,24 +10,19 @@ import urllib.request, urllib.parse, urllib.error
 import logging
 import pandas as pd
 
+logging.basicConfig(filename='eod_log_{0}.log'.format(datetime.date.today()),level=logging.DEBUG,format='%(asctime)s %(message)s')
+
 class EOData:
 
-    def __init__(self):
-        self.log_enabled = False
-        self.logging = None
-
-    def init_log(self):
-        logging.basicConfig(filename='eod_log_{0}.log'.format(datetime.date.today()),level=logging.DEBUG,format='%(asctime)s %(message)s')
-        self.log_enabled = True
-
-    def get_eod_csv(self,dir= '',exchs= [], overwrite= False):
+    def get_eod_csv(self,dir='',exchs=[]):
         # downloads csv files to dir specified for exchs specified
         # default is all exchanges to local directory
 
         if dir:
             if not os.path.exists(dir):
                     os.makedirs(dir)
-        exch_list = ['AMEX','NYSE','Nasdaq','SCAP']
+
+        exch_list = ['AMEX','NYSE','Nasdaq','SCAP','USETFs']
 
         if exchs:
             for item in exchs:
@@ -36,15 +31,9 @@ class EOData:
                 if not os.path.exists(filename):
                     try:
                         urllib.request.urlretrieve(path, filename)
-                        if self.log_enabled:
-                            logging.info('{0} ...downloaded successfully'.format(path))
-                        else:
-                            print('{0} ...downloaded successfully'.format(path))
+                        logging.info('{0}...downloaded successfully'.format(path))
                     except:
-                        if self.log_enabled:
-                            logging.warning('unable to download {0}'.format(path))
-                        else:
-                            print('unable to download {0}'.format(path))
+                        logging.warning('unable to download {0}...'.format(path))
         else:
             for item in exch_list:
                 path = 'http://online.wsj.com/public/resources/documents/{0}.csv'.format(item)
@@ -52,30 +41,16 @@ class EOData:
                 if not os.path.exists(filename):
                     try:
                         urllib.request.urlretrieve(path, filename)
-                        if self.log_enabled:
-                            logging.info('{0} ...downloaded successfully'.format(path))
-                        else:
-                            print('{0} ...downloaded successfully'.format(path))
+                        logging.info('{0}...downloaded successfully'.format(path))
                     except:
-                        if self.log_enabled:
-                            logging.warning('unable to download {0}'.format(path))
-                        else:
-                            print('unable to download {0}'.format(path))
-                else:
-                    if self.log_enabled:
-                        logging.warning('file already exists, not downloading!')
-                    else:
-                        print('file already exists!')
+                        logging.warning('unable to download {0}...'.format(path))
 
     def get_all_eod(self,keep_csv=False):
         # returns unindexed df containing combination of raw eod csv data files from each exch
 
         self.get_eod_csv(dir='temp')
         dfs = []
-        if self.log_enabled:
-            logging.info('... reading files')
-        else:
-            print('... reading files')
+        logging.info('... reading files')
         for i in os.listdir('temp'):
             if '.csv' in i:
                 pt = os.path.join('temp',i)
@@ -89,14 +64,11 @@ class EOData:
                 df['Exchange'] = exchange
                 dfs.append(df)
         if keep_csv == False:
-            if self.log_enabled:
-                logging.info('... cleaning up')
-            else:
-                print('... cleaning up')
+            logging.info('... cleaning up')
             shutil.rmtree('temp',ignore_errors=True)
         df = pd.concat(dfs)
         df.columns = ['Name','Symbol','Open','High','Low','Close','Net Chg','pCentChg','Volume','52WkHigh','52WkLow','Div','Yield','P/E','YTDpCentChg','Exchange']
-        df = df.sort_values('Symbol',kind='quicksort')
+        df = df.sort('Symbol',kind='quicksort')
         return df
 
     def from_cmd(self):
@@ -116,8 +88,7 @@ class EOData:
         else:
             ftr = exch_data[fields]
 
-        if self.log_enabled:
-            logging.info('... length of df: {0}'.format(len(ftr)))
+        logging.info('... length of df: {0}'.format(len(ftr)))
         fpath = argd[0]
 
         # lines below enable overwriting by default
@@ -129,19 +100,15 @@ class EOData:
                 ftr.to_csv(fpath,index= False,header= True)
             else:
                 ftr.to_csv(fpath,index= False,header= False)
-            if self.log_enabled:
-                logging.info('... complete {0}'.format(fpath))
-            else:
-                print('... complete {0}'.format(fpath))
+            logging.info('... complete {0}'.format(fpath))
         else:
             if argd[1] == True:
                 ftr.to_csv(fpath,index= False,header= True,sep= ' ',mode= 'a')
             else:
                 ftr.to_csv(fpath,index= False,header= False,sep= ' ',mode= 'a')
-            if self.log_enabled:
-                logging.info('... complete {0}'.format(fpath))
-            else:
-                print('... complete {0}'.format(fpath))
+            logging.info('... complete {0}'.format(fpath))
+
+
 
     def skip_header(self,seq, n):
         # supporting func for EOData.get_all_eod
@@ -164,27 +131,23 @@ class EOData:
                 if 'fname=' in item:
                     t = item.split('fname=')
                     fname = t[1]
-                    if self.log_enabled:
-                        logging.info('... filename specified: {0}'.format(fname))
+                    logging.info('... filename specified: {0}'.format(fname))
 
                 if 'dest_folder=' in item:
                     t = item.split('dest_folder=')
                     dest_folder = t[1]
-                    if self.log_enabled:
-                        logging.info('... destination folder specified: {0}'.format(dest_folder))
+                    logging.info('... destination folder specified: {0}'.format(dest_folder))
 
                 if 'dest_path=' in item:
                     t = item.split('dest_path=')
                     dest_path = t[1]
-                    if self.log_enabled:
-                        logging.info('... destination filepath specified: {0}'.format(dest_path))
+                    logging.info('... destination filepath specified: {0}'.format(dest_path))
 
                 if 'headers=' in item:
                     t = item.split('headers=')
                     if t[1].lower() == 'true':
                         header = True
-                        if self.log_enabled:
-                            logging.info('... headers enabled')
+                        logging.info('... headers enabled')
                     else:
                         header = False
 
@@ -192,18 +155,19 @@ class EOData:
                     t = item.split('fields=')
                     if t[1] == str(t[1]):
                         listofcols=t[1]
-                        if self.log_enabled:
-                            logging.info('... filtered for specified fields')
+                        logging.info('... filtered for specified fields')
                     else:
                         listofcols = ast.literal_eval(t[1])
-                        if self.log_enabled:
-                            logging.info('... filtered for specified fields')
+                        logging.info('... filtered for specified fields')
 
         full_path = os.path.join(dest_folder,fname)
         if dest_path:
             full_path=dest_path
-        if self.log_enabled:
-            logging.info('... saving to path: {0}'.format(full_path))
+        logging.info('... saving to path: {0}'.format(full_path))
         argd = [full_path,header,listofcols]
 
         return argd
+
+if __name__ == "__main__":
+    exch_data = EOData()
+    exch_data.from_cmd()

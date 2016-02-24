@@ -12,7 +12,7 @@ data provided in csv format @ http://online.wsj.com/public/resources/documents/s
 with the prerequisites and necessary environment variables enabled, the script can be called from the command line or bat file
 after navigating to the working directory and executing:
 
-	python eod-cmd.py
+	python eod-exch.py
 
 the script simply initiates an instance of EOData and calls the method EOData.from_cmd()
 
@@ -62,7 +62,7 @@ below:
 
 Examples:
 
-	if one simply wanted to download end of day closing data with no headers, they could simply type:
+	if one simply wanted to download end of day closing data with no headers:
 
 		python eod-cmd.py
 
